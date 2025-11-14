@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"syscall"
 
 	"github.com/go-git/go-billy/v6"
@@ -21,7 +22,8 @@ const separator = filepath.Separator
 
 // Memory a very convenient filesystem based on memory files.
 type Memory struct {
-	s *storage
+	s      *storage
+	nextfd atomic.Int64
 }
 
 // New returns a new Memory filesystem.
@@ -77,7 +79,8 @@ func (fs *Memory) OpenFile(filename string, flag int, perm gofs.FileMode) (billy
 		return nil, fmt.Errorf("cannot open directory: %s", filename)
 	}
 
-	return f.Duplicate(filename, perm, flag), nil
+	nextfd := uintptr(fs.nextfd.Add(1))
+	return f.Duplicate(nextfd, filename, perm, flag), nil
 }
 
 func (fs *Memory) resolveLink(fullpath string, f *file) (target string, isLink bool) {

@@ -10,12 +10,14 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/go-git/go-billy/v6"
 )
 
 type Embed struct {
 	underlying *embed.FS
+	nextfd     atomic.Int64
 }
 
 func New(efs *embed.FS) billy.Filesystem {
@@ -70,9 +72,10 @@ func (fs *Embed) OpenFile(filename string, flag int, _ os.FileMode) (billy.File,
 		return nil, err
 	}
 
+	nextfd := uintptr(fs.nextfd.Add(1))
 	// Only load the bytes to memory if the files is needed.
 	lazyFunc := func() *bytes.Reader { return bytes.NewReader(data) }
-	return toFile(lazyFunc, fi), nil
+	return toFile(nextfd, lazyFunc, fi), nil
 }
 
 // Join return a path with all elements joined by forward slashes.
@@ -155,14 +158,16 @@ func (fs *Embed) MkdirAll(_ string, _ os.FileMode) error {
 	return billy.ErrReadOnly
 }
 
-func toFile(lazy func() *bytes.Reader, fi fs.FileInfo) billy.File {
+func toFile(fd uintptr, lazy func() *bytes.Reader, fi fs.FileInfo) billy.File {
 	return &file{
+		fd:   fd,
 		lazy: lazy,
 		fi:   fi,
 	}
 }
 
 type file struct {
+	fd     uintptr
 	lazy   func() *bytes.Reader
 	reader *bytes.Reader
 	fi     fs.FileInfo
@@ -187,6 +192,14 @@ func (f *file) ReadAt(b []byte, off int64) (int, error) {
 	f.once.Do(f.loadReader)
 
 	return f.reader.ReadAt(b, off)
+}
+
+func (f *file) Fd() uintptr {
+	return f.fd
+}
+
+func (f *file) Sync() error {
+	return billy.ErrReadOnly
 }
 
 func (f *file) Seek(offset int64, whence int) (int64, error) {

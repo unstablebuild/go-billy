@@ -142,6 +142,10 @@ func (*FileMock) Lock() error {
 	return nil
 }
 
+func (*FileMock) Fd() uintptr {
+	return 0
+}
+
 func (*FileMock) Unlock() error {
 	return nil
 }

@@ -12,6 +12,7 @@ import (
 )
 
 type file struct {
+	fd       uintptr
 	name     string
 	content  *content
 	position int64
@@ -23,6 +24,10 @@ type file struct {
 
 func (f *file) Name() string {
 	return f.name
+}
+
+func (f *file) Fd() uintptr {
+	return f.fd
 }
 
 func (f *file) Read(b []byte) (int, error) {
@@ -95,6 +100,10 @@ func (f *file) Close() error {
 	return nil
 }
 
+func (f *file) Sync() error {
+	return nil
+}
+
 func (f *file) Truncate(size int64) error {
 	if size < int64(len(f.content.bytes)) {
 		f.content.bytes = f.content.bytes[:size]
@@ -105,8 +114,9 @@ func (f *file) Truncate(size int64) error {
 	return nil
 }
 
-func (f *file) Duplicate(filename string, mode fs.FileMode, flag int) billy.File {
+func (f *file) Duplicate(fd uintptr, filename string, mode fs.FileMode, flag int) billy.File {
 	n := &file{
+		fd:      fd,
 		name:    filename,
 		content: f.content,
 		mode:    mode,

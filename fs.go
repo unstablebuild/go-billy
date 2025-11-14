@@ -170,11 +170,12 @@ type File interface {
 	// Name returns the name of the file as presented to Open.
 	Name() string
 	io.Writer
-	io.WriterAt
 	io.ReaderAt
 	io.Seeker
 	// Truncate the file.
 	Truncate(size int64) error
+	Sync() error
+	Fd() uintptr
 }
 
 // Locker abstracts the lock and unlock of a File within the filesystem. Not
